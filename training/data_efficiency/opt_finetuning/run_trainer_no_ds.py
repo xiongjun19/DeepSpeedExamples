@@ -432,20 +432,20 @@ def training(model, train_dataloader, train_dataset,
              eval_dataloader, eval_dataset,
              num_train_epochs, device, tokenizer, args):
     start = time.time()
-    # optimizer = get_optimizer(model, args)
+    optimizer = get_optimizer(model, args)
     # Split weights in two groups, one with weight decay and the other not.
     world_size = torch.distributed.get_world_size()
     if args.warmup_ratio is not None:
         args.num_warmup_steps = int(args.max_train_steps*args.warmup_ratio)
     total_tokens = args.max_train_steps*args.per_device_train_batch_size*args.gradient_accumulation_steps*args.block_size*world_size
-    # lr_scheduler = get_lr_scheduler(optimizer, total_tokens, args)
-    model, optimizer, _, lr_scheduler = deepspeed.initialize(
-                model=model,
-                model_parameters=model.parameters(),
-                # optimizer=optimizer,
-                args=args,
-                # lr_scheduler=lr_scheduler,
-                dist_init_required=True)
+    lr_scheduler = get_lr_scheduler(optimizer, total_tokens, args)
+    # model, optimizer, _, lr_scheduler = deepspeed.initialize(
+    #             model=model,
+    #             model_parameters=model.parameters(),
+    #             # optimizer=optimizer,
+    #             args=args,
+    #             # lr_scheduler=lr_scheduler,
+    #             dist_init_required=True)
 
     epoch = 0
     global_step = 0
@@ -462,16 +462,14 @@ def training(model, train_dataloader, train_dataset,
         model.train()
         for step, batch in enumerate(train_dataloader):
             model.train()
-            print(batch['input_ids'].shape)
             batch = to_device(batch, device)
             outputs = model(**batch)
             loss = outputs.loss
-            # loss = loss / args.gradient_accumulation_steps # DeepSpeed engine will handle this loss scaling (_scale_loss_by_gas), thus no need to do so on user side
-            model.backward(loss)
-
+            loss = loss / args.gradient_accumulation_steps 
+            loss.backward(loss)
             actual_seq_length = args.block_size
             consumed_token += actual_seq_length * args.per_device_train_batch_size * world_size
-            model.step()
+            optimizer.step()
             micro_step += 1
             if micro_step % args.gradient_accumulation_steps == 0:
                 global_step += 1
@@ -551,7 +549,6 @@ def main():
 
     num_p = sum([p.numel() for p in model.parameters()])
     print_rank_0('Number of parameters: {}'.format(num_p), args.local_rank)
-    # import ipdb; ipdb.set_trace()
     training(model, train_dataloader, train_dataset,
              eval_dataloader, eval_dataset,
              args.num_train_epochs, device,
