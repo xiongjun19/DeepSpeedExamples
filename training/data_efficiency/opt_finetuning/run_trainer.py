@@ -348,14 +348,6 @@ def get_dataloader(train_dataset, eval_dataset, args):
 
 def get_model(args):
     if args.model_name_or_path is not None:
-        config = AutoConfig.from_pretrained(args.model_name_or_path)
-    else:
-        config = CONFIG_MAPPING[args.model_type]()
-        logger.warning("You are instantiating a new config instance from scratch.")
-    if args.not_tie_wre:
-        config.tie_word_embeddings = False
-
-    if args.model_name_or_path is not None:
         tokenizer = AutoTokenizer.from_pretrained(args.model_name_or_path, use_fast=not args.use_slow_tokenizer)
     else:
         raise ValueError(
@@ -364,13 +356,10 @@ def get_model(args):
         )
     if args.model_name_or_path:
         model = AutoModelForCausalLM.from_pretrained(
-            args.model_name_or_path,
-            from_tf=bool(".ckpt" in args.model_name_or_path),
-            config=config,
+            args.model_name_or_path
         )
     else:
         model = AutoModelForCausalLM.from_config(config)
-
     model.resize_token_embeddings(len(tokenizer))
     return model, tokenizer
 
@@ -450,12 +439,13 @@ def training(model, train_dataloader, train_dataset,
         args.num_warmup_steps = int(args.max_train_steps*args.warmup_ratio)
     total_tokens = args.max_train_steps*args.per_device_train_batch_size*args.gradient_accumulation_steps*args.block_size*world_size
     lr_scheduler = get_lr_scheduler(optimizer, total_tokens, args)
-    model, optimizer, _, lr_scheduler = deepspeed.initialize(
-            model=model,
-            optimizer=optimizer,
-            args=args,
-            lr_scheduler=lr_scheduler,
-            dist_init_required=True)
+    # model, optimizer, _, lr_scheduler = deepspeed.initialize(
+    #         model=model,
+    #         optimizer=optimizer,
+    #         args=args,
+    #         lr_scheduler=lr_scheduler,
+    #         dist_init_required=True, 
+    #         )
     epoch = 0
     global_step = 0
     micro_step = 0
@@ -559,6 +549,7 @@ def main():
 
     num_p = sum([p.numel() for p in model.parameters()])
     print_rank_0('Number of parameters: {}'.format(num_p), args.local_rank)
+    # import ipdb; ipdb.set_trace()
     training(model, train_dataloader, train_dataset,
              eval_dataloader, eval_dataset,
              args.num_train_epochs, device,
