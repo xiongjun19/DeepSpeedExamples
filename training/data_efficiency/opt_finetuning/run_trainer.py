@@ -439,13 +439,13 @@ def training(model, train_dataloader, train_dataset,
         args.num_warmup_steps = int(args.max_train_steps*args.warmup_ratio)
     total_tokens = args.max_train_steps*args.per_device_train_batch_size*args.gradient_accumulation_steps*args.block_size*world_size
     lr_scheduler = get_lr_scheduler(optimizer, total_tokens, args)
-    # model, optimizer, _, lr_scheduler = deepspeed.initialize(
-    #         model=model,
-    #         optimizer=optimizer,
-    #         args=args,
-    #         lr_scheduler=lr_scheduler,
-    #         dist_init_required=True, 
-    #         )
+    model, optimizer, _, lr_scheduler = deepspeed.initialize(
+                model=model,
+                optimizer=optimizer,
+                args=args,
+                lr_scheduler=lr_scheduler,
+                dist_init_required=True)
+
     epoch = 0
     global_step = 0
     micro_step = 0
