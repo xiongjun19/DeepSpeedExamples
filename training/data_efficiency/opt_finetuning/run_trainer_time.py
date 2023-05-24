@@ -453,8 +453,8 @@ def training(model, train_dataloader, train_dataset,
     current_best = float("inf")
     consumed_token = 0
     args.eval_step = max(1, args.max_train_steps // 100)
-    start_steps = 5
-    record_steps = 10
+    start_steps = 40 
+    record_steps = 16 
     iter_times = []
     while consumed_token < total_tokens:
     # for epoch in range(num_train_epochs):
@@ -466,7 +466,6 @@ def training(model, train_dataloader, train_dataset,
         for step, batch in enumerate(train_dataloader):
             ss = time.time()
             model.train()
-            print(batch['input_ids'].shape)
             batch = to_device(batch, device)
             outputs = model(**batch)
             loss = outputs.loss
@@ -491,15 +490,17 @@ def training(model, train_dataloader, train_dataset,
             if consumed_token >= total_tokens:
                 break
             if step >= start_steps + record_steps:
+                min_time = min(iter_times)
+                max_time = max(iter_times)
+                avg_time = sum(iter_times) / len(iter_times)
+                print(f"time measure of per iter: min_time is: {min_time}, max_time is: {max_time}, average time is {avg_time}")
+                print(iter_times)
+                return
                 break
         perplexity = evaluation(model, eval_dataset, eval_dataloader, device)
         current_best = min(current_best, perplexity)
         print_rank_0(f"End of epoch {epoch+1} step {global_step} consumed_token {consumed_token} perplexity {perplexity} current best {current_best}", args.local_rank)
         if consumed_token >= total_tokens:
-            min_time = min(iter_times)
-            max_time = max(iter_times)
-            avg_time = sum(iter_times)
-            print(f"time measure of per iter: min_time is: {min_time}, max_time is: {max_time}, average time is {avg_time}")
             break
         epoch += 1
     duration = (time.time() - start) / 3600.0

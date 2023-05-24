@@ -10,7 +10,7 @@ cfg_path="$2"
 mkdir -p ${out_path} 
 python -m torch.distributed.launch --nproc_per_node=${gpu_num} \
     --master_port 12345 \
-    run_trainer.py \
+    run_trainer_time.py \
     --dataset_name ptb_text_only \
     --dataset_config_name penn_treebank \
     --model_name_or_path "facebook/${model_name}" \
