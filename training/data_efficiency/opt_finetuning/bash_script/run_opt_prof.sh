@@ -1,6 +1,6 @@
 #!/bin/bash
 
-log_dir=/workspace/data/ds_train_logs/
+log_dir=./ds_train_logs/
 gpu_logs=${log_dir}/gpu_logs
 cpu_logs=${log_dir}/cpu_logs
 mkdir -p ${gpu_logs}

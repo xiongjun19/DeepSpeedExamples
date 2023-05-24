@@ -35,6 +35,7 @@ import deepspeed
 import numpy as np
 from learning_rates import AnnealingLR
 from profiler_helper import perf_log
+import ctypes
 
 
 _cudart = ctypes.CDLL('libcudart.so')
@@ -445,7 +446,7 @@ def get_lr_scheduler(optimizer, total_tokens, args):
 
 
 @perf_log(log_path=None)
-def get_prof(train_dataloader, model, args, steps):
+def get_prof(train_dataloader, model, args, steps, device):
     model.train()
     p_start()
     for step, batch in enumerate(train_dataloader):
@@ -520,12 +521,10 @@ def training(model, train_dataloader, train_dataset,
             print("finished warm_up")
             break
     get_prof.set_path(args.cpu_log_path)
-    get_prof(train_dataloader, model, args, record_steps)
+    get_prof(train_dataloader, model, args, record_steps, device)
     perplexity = evaluation(model, eval_dataset, eval_dataloader, device)
     current_best = min(current_best, perplexity)
     print_rank_0(f"End of epoch {epoch+1} step {global_step} consumed_token {consumed_token} perplexity {perplexity} current best {current_best}", args.local_rank)
-    if consumed_token >= total_tokens:
-        break
     epoch += 1
     duration = (time.time() - start) / 3600.0
     print_rank_0(f"End of training epoch {epoch+1} step {global_step} consumed_token {consumed_token} best perplexity {current_best} time {duration} hr", args.local_rank)
